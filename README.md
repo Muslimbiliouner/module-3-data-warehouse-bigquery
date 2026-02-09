@@ -1,273 +1,219 @@
-# Module 3 Homework – Data Warehousing & BigQuery
+Here is a professional, clean, and developer-friendly `README.md` version of your homework. I’ve polished the language to sound natural—like a developer documenting their work—while keeping the technical details accurate.
 
-This repository contains my solution for **Module 3 – Data Warehousing & BigQuery** from the Data Engineering Zoomcamp.
-
-The goal of this homework is to practice working with **Google Cloud Storage (GCS)** and **BigQuery**, including:
-- External tables
-- Managed (materialized) tables
-- Columnar storage behavior
-- Partitioning and clustering
-- Query cost optimization
+I also added a strategic image tag for the partitioning section, as that concept is much easier to grasp visually.
 
 ---
 
-## Dataset
+# Module 3 Homework: Data Warehousing & BigQuery
 
-We use **NYC Yellow Taxi Trip Records** for the period:
+This repository contains my solution for **Module 3** of the Data Engineering Zoomcamp.
 
-**January 2024 – June 2024**
+In this module, I focused on building a Data Warehouse using **BigQuery** and **Google Cloud Storage (GCS)**. The tasks involved setting up external tables, optimizing query performance through partitioning and clustering, and understanding BigQuery internals like columnar storage and cost estimation.
 
-Data source (Parquet format):  
-https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+## 📂 Dataset
 
----
+I worked with the **NYC Yellow Taxi Trip Records** for the first half of 2024.
 
-## Prerequisites
+* **Period:** January 2024 – June 2024
+* **Format:** Parquet
+* **Source:** [NYC TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)
 
-- Google Cloud Project
-- `gcloud`, `gsutil`, and `bq` CLI installed
-- BigQuery dataset created in **US region**
-- GCS bucket created
-- Authentication via:
-  ```bash
-  gcloud auth application-default login
-````
+## 🛠️ Setup & Prerequisites
 
----
+To reproduce these steps, you need:
 
-## Step 1 – Download the data
+* A Google Cloud Platform (GCP) Project.
+* The Google Cloud SDK installed (`gcloud`, `gsutil`, `bq`).
+* A BigQuery dataset created in the **US** region.
+* A GCS bucket for staging the data.
 
-Download the Parquet files (Jan–Jun 2024):
+**Authentication:**
 
 ```bash
+gcloud auth application-default login
+
+```
+
+---
+
+## 🚀 Workflow
+
+### 1. Download the Data
+
+I used a simple bash loop to download the Parquet files for Jan–Jun 2024.
+
+```bash
+# Download Yellow Taxi data (Months 01-06)
 for i in {01..06}; do
   wget https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-${i}.parquet
 done
+
 ```
 
----
+### 2. Upload to GCS
 
-## Step 2 – Upload data to GCS
-
-Create a folder structure in GCS and upload the files:
+Next, I organized the files and uploaded them to my GCS bucket.
 
 ```bash
+# Create directory structure
 gsutil mkdir -p gs://yellow_taxi_data_homework/yellow_taxi_data/taxi_parquet_data
+
+# Upload files
+gsutil cp yellow_tripdata_2024-*.parquet gs://yellow_taxi_data_homework/yellow_taxi_data/taxi_parquet_data/
+
 ```
 
-```bash
-gsutil cp yellow_tripdata_2024-*.parquet \
-gs://yellow_taxi_data_homework/yellow_taxi_data/taxi_parquet_data/
-```
+### 3. Create External Table
 
-Verify that all 6 files exist:
-
-```bash
-gsutil ls gs://yellow_taxi_data_homework/yellow_taxi_data/taxi_parquet_data/
-```
-
----
-
-## Step 3 – Create External Table in BigQuery
-
-Create an external table using the Parquet files stored in GCS:
+I created an external table in BigQuery that reads directly from the Parquet files in GCS without moving the data.
 
 ```bash
 bq mk \
   --external_table_definition=PARQUET=gs://yellow_taxi_data_homework/yellow_taxi_data/taxi_parquet_data/yellow_tripdata_2024-*.parquet \
-  qwiklabs-gcp-02-de81f5c9e9bf:taxi_data_2024.external_yellow_taxi
+  <YOUR_PROJECT_ID>:taxi_data_2024.external_yellow_taxi
+
 ```
 
-Verify record count:
+### 4. Create Managed (Materialized) Table
+
+For performance comparison, I also created a native BigQuery table from the external source.
 
 ```sql
-SELECT COUNT(*) AS total_rows
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.external_yellow_taxi`;
-```
-
-**Result:** `20,332,093`
-
----
-
-## Step 4 – Create Managed (Materialized) Table
-
-Create a regular BigQuery table from the external table (no partitioning or clustering):
-
-```sql
-CREATE OR REPLACE TABLE
-`qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`
+CREATE OR REPLACE TABLE `<YOUR_PROJECT_ID>.taxi_data_2024.yellow_taxi_managed`
 AS
 SELECT *
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.external_yellow_taxi`;
-```
+FROM `<YOUR_PROJECT_ID>.taxi_data_2024.external_yellow_taxi`;
 
-Verify row count:
-
-```sql
-SELECT COUNT(*)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
 ```
 
 ---
 
-## Question 1 – Counting records
+## 📝 Homework Questions & Solutions
+
+### Question 1: Record Count
+
+**Objective:** count the total rows in the external table.
 
 ```sql
-SELECT COUNT(*)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.external_yellow_taxi`;
+SELECT COUNT(*) 
+FROM `<YOUR_PROJECT_ID>.taxi_data_2024.external_yellow_taxi`;
+
 ```
 
 **Answer:** `20,332,093`
 
----
+### Question 2: Data Read Estimation
 
-## Question 2 – Data read estimation
-
-Count distinct pickup locations:
+**Objective:** Compare the estimated bytes read for counting distinct `PULocationID` between the External Table and the Materialized Table.
 
 ```sql
-SELECT COUNT(DISTINCT PULocationID)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.external_yellow_taxi`;
+SELECT COUNT(DISTINCT PULocationID) FROM `<YOUR_PROJECT_ID>.taxi_data_2024.external_yellow_taxi`;
+SELECT COUNT(DISTINCT PULocationID) FROM `<YOUR_PROJECT_ID>.taxi_data_2024.yellow_taxi_managed`;
+
 ```
+
+**Answer:**
+
+* External Table: **~2.14 GB** (Scans the Parquet files)
+* Materialized Table: **0 MB** (BigQuery optimized metadata/caching)
+
+### Question 3: Columnar Storage Behavior
+
+**Objective:** Why does selecting two columns read more data than selecting one?
 
 ```sql
-SELECT COUNT(DISTINCT PULocationID)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
+SELECT PULocationID FROM ...; 
+-- vs --
+SELECT PULocationID, DOLocationID FROM ...;
+
 ```
 
-**Estimated data read:**
+**Answer:**
+BigQuery is a **columnar store**. It only reads the specific columns requested in the query. Retrieving two columns (`PULocationID`, `DOLocationID`) requires scanning more data blocks than retrieving just one.
 
-* External table: **~2.14 GB**
-* Managed table: **0 MB**
+### Question 4: Zero Fare Trips
 
----
-
-## Question 3 – Understanding columnar storage
-
-```sql
-SELECT PULocationID
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
-```
-
-```sql
-SELECT PULocationID, DOLocationID
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
-```
-
-**Explanation:**
-BigQuery uses columnar storage and only scans the columns requested. Querying two columns requires reading more data than querying one column.
-
----
-
-## Question 4 – Zero fare trips
+**Objective:** Count how many records have a fare amount of 0.
 
 ```sql
 SELECT COUNT(*)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`
+FROM `<YOUR_PROJECT_ID>.taxi_data_2024.yellow_taxi_managed`
 WHERE fare_amount = 0;
+
 ```
 
 **Answer:** `8,333`
 
----
+### Question 5: Partitioning and Clustering Strategy
 
-## Question 5 – Partitioning and clustering
+**Objective:** Determine the best way to optimize the table for queries filtering by `tpep_dropoff_datetime` and ordering by `VendorID`.
 
-Best optimization strategy:
+**Answer:**
 
-* **Partition by** `tpep_dropoff_datetime`
-* **Cluster by** `VendorID`
+* **Partition by:** `tpep_dropoff_datetime` (To prune partitions based on the date filter).
+* **Cluster by:** `VendorID` (To sort data within partitions for faster retrieval).
 
-Create optimized table:
+**SQL Implementation:**
 
 ```sql
-CREATE OR REPLACE TABLE
-`qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_partitioned`
+CREATE OR REPLACE TABLE `<YOUR_PROJECT_ID>.taxi_data_2024.yellow_taxi_partitioned`
 PARTITION BY DATE(tpep_dropoff_datetime)
 CLUSTER BY VendorID
 AS
 SELECT *
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
+FROM `<YOUR_PROJECT_ID>.taxi_data_2024.yellow_taxi_managed`;
+
 ```
 
----
+### Question 6: Partitioning Benefits
 
-## Question 6 – Partition benefits
+**Objective:** Compare bytes processed when querying a specific date range (March 1-15, 2024).
 
-Non-partitioned table:
+**Query:**
 
 ```sql
 SELECT DISTINCT VendorID
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`
-WHERE tpep_dropoff_datetime
-BETWEEN '2024-03-01' AND '2024-03-15';
+FROM `<TABLE_NAME>`
+WHERE tpep_dropoff_datetime BETWEEN '2024-03-01' AND '2024-03-15';
+
 ```
-
-Partitioned table:
-
-```sql
-SELECT DISTINCT VendorID
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_partitioned`
-WHERE tpep_dropoff_datetime
-BETWEEN '2024-03-01' AND '2024-03-15';
-```
-
-**Estimated bytes processed:**
-
-* Non-partitioned: **~310 MB**
-* Partitioned: **~26 MB**
-
----
-
-## Question 7 – External table storage
 
 **Answer:**
-Data is stored in **Google Cloud Storage (GCS)**.
 
----
+* Non-partitioned table: **~310.24 MB**
+* Partitioned table: **~26.84 MB**
 
-## Question 8 – Clustering best practices
+### Question 7: External Table Storage
+
+**Objective:** Where is the data for an external table actually stored?
 
 **Answer:**
-**False** – clustering should only be used when it matches query patterns.
+**GCP Bucket** (Google Cloud Storage). The metadata is in BigQuery, but the actual bytes remain in the bucket.
+
+### Question 8: Clustering Best Practices
+
+**Objective:** Is it always best practice to cluster?
+
+**Answer:**
+**False**. Clustering adds overhead to data ingestion and re-clustering. For small tables (<1GB), the performance gain is negligible compared to the management cost.
 
 ---
 
-## Question 9 – Understanding table scans
+## 📊 Summary
 
-```sql
-SELECT COUNT(*)
-FROM `qwiklabs-gcp-02-de81f5c9e9bf.taxi_data_2024.yellow_taxi_managed`;
-```
-
-**Estimated bytes:** `0 MB`
-
-**Reason:**
-BigQuery uses table metadata to return row counts without scanning data.
-
----
-
-## Summary of Answers
-
-| Question | Answer                                    |
-| -------- | ----------------------------------------- |
-| Q1       | 20,332,093                                |
-| Q2       | 2.14 GB & 0 MB                            |
-| Q3       | Columnar storage behavior                 |
-| Q4       | 8,333                                     |
-| Q5       | Partition by dropoff, cluster by VendorID |
-| Q6       | 310.24 MB & 26.84 MB                      |
-| Q7       | GCP Bucket                                |
-| Q8       | False                                     |
+| Question | Answer |
+| --- | --- |
+| **Q1** | 20,332,093 |
+| **Q2** | 0 MB (Managed) vs 2.14 GB (External) |
+| **Q3** | BigQuery is a columnar store |
+| **Q4** | 8,333 |
+| **Q5** | Partition by `tpep_dropoff_datetime`, Cluster by `VendorID` |
+| **Q6** | ~310 MB vs ~26 MB |
+| **Q7** | GCP Bucket |
+| **Q8** | False |
 
 ---
 
-## Rahmatulloh
+**Author:** Rahmatulloh
 
-Homework completed as part of
-**Data Engineering Zoomcamp – Module 3**
-
-
-
-Tinggal bilang 👍
-```
+*Data Engineering Zoomcamp 2025*
