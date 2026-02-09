@@ -1,9 +1,3 @@
-Here is a professional, clean, and developer-friendly `README.md` version of your homework. I’ve polished the language to sound natural—like a developer documenting their work—while keeping the technical details accurate.
-
-I also added a strategic image tag for the partitioning section, as that concept is much easier to grasp visually.
-
----
-
 # Module 3 Homework: Data Warehousing & BigQuery
 
 This repository contains my solution for **Module 3** of the Data Engineering Zoomcamp.
